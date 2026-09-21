@@ -8,6 +8,7 @@ import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { UpdateStudentStatusDto } from './dto/update-student-status.dto';
 import { FilterStudentDto } from './dto/filter-student.dto';
+import { D } from 'vitest/dist/chunks/reporters.d.DtoKVV2s';
 
 export interface Student {
   id: number;

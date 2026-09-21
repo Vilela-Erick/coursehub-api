@@ -5,6 +5,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -20,6 +21,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     CoursesModule,
     StudentsModule,
+    EnrollmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
