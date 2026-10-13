@@ -1,140 +1,89 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
+import { Student } from './entities/student.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { UpdateStudentStatusDto } from './dto/update-student-status.dto';
 import { FilterStudentDto } from './dto/filter-student.dto';
-import { D } from 'vitest/dist/chunks/reporters.d.DtoKVV2s';
-
-export interface Student {
-  id: number;
-  name: string;
-  email: string;
-  age: number;
-  career: string;
-  semester: number;
-  isActive: boolean;
-}
 
 @Injectable()
 export class StudentsService {
-  private students: Student[] = [];
+  constructor(
+    @InjectRepository(Student)
+    private readonly studentRepository: Repository<Student>,
+  ) {}
 
-  private nextId = 1;
-
-  create(createStudentDto: CreateStudentDto): Student {
-    const emailExists = this.students.some(
-      (student) => student.email.toLowerCase() === createStudentDto.email.toLowerCase(),
-    );
-
-    if (emailExists) {
-      throw new ConflictException(
-        'Ya existe un estudiante registrado con ese correo electrónico',
-      );
+  async create(createStudentDto: CreateStudentDto): Promise<Student> {
+    try {
+      const newStudent = this.studentRepository.create(createStudentDto);
+      return await this.studentRepository.save(newStudent);
+    } catch (error: any) {
+      // Captura el error de restricción única (PostgreSQL: 23505, MySQL: 1062)
+      if (error.code === '23505' || error.errno === 1062) {
+        throw new ConflictException(`El correo electrónico '${createStudentDto.email}' ya está siendo utilizado por otro estudiante.`);
+      }
+      throw error;
     }
-
-    const student: Student = {
-      id: this.nextId++,
-      ...createStudentDto,
-    };
-
-    this.students.push(student);
-
-    return student;
   }
 
-  findAll(filters?: FilterStudentDto): Student[] {
-    let result = [...this.students];
+  async findAll(filters: FilterStudentDto): Promise<Student[]> {
+    const whereConditions: FindOptionsWhere<Student> = {};
 
-    if (filters?.career) {
-      result = result.filter(
-        (student) =>
-          student.career.toLowerCase() === filters.career!.toLowerCase(),
-      );
-    }
-
-    if (filters?.semester !== undefined) {
-      result = result.filter(
-        (student) => student.semester === filters.semester,
-      );
-    }
-
-    if (filters?.isActive !== undefined) {
-      result = result.filter(
-        (student) => student.isActive === filters.isActive,
-      );
-    }
-
-    return result;
-  }
-
-  findOne(id: number): Student {
-    const student = this.students.find(
-      (student) => student.id === id,
-    );
-
-    if (!student) {
-      throw new NotFoundException(
-        `No existe un estudiante con el ID ${id}`,
-      );
-    }
-
-    return student;
-  }
-
-  update(id: number, updateStudentDto: UpdateStudentDto): Student {
-    const student = this.findOne(id);
-
-    if (updateStudentDto.email) {
-      const emailExists = this.students.some(
-        (otherStudent) =>
-          otherStudent.id !== id &&
-          otherStudent.email.toLowerCase() ===
-            updateStudentDto.email!.toLowerCase(),
-      );
-
-      if (emailExists) {
-        throw new ConflictException(
-          'Ya existe otro estudiante con ese correo electrónico',
-        );
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== '') {
+          (whereConditions as any)[key] = value;
+        }
       }
     }
 
-    Object.assign(student, updateStudentDto);
-
-    return student;
+    return await this.studentRepository.find({
+      where: whereConditions,
+      relations: {
+        enrollments: true,
+      },
+    });
   }
 
-  updateStatus(
-    id: number,
-    updateStatusDto: UpdateStudentStatusDto,
-  ): Student {
-    const student = this.findOne(id);
+  async findOne(id: number): Promise<Student> {
+    const student = await this.studentRepository.findOne({
+      where: { id },
+      relations: {
+        enrollments: true,
+      },
+    });
 
-    student.isActive = updateStatusDto.isActive;
-
-    return student;
-  }
-
-  remove(id: number): Student {
-    const student = this.findOne(id);
-
-    if (!student.isActive) {
-      throw new ConflictException(
-        'No se puede eliminar un estudiante que se encuentra inactivo',
-      );
+    if (!student) {
+      throw new NotFoundException(`Estudiante con ID ${id} no encontrado`);
     }
-
-    const index = this.students.findIndex(
-      (student) => student.id === id,
-    );
-
-    this.students.splice(index, 1);
-
     return student;
+  }
+
+  async update(id: number, updateStudentDto: UpdateStudentDto): Promise<Student> {
+    const student = await this.findOne(id);
+    const updatedStudent = this.studentRepository.merge(student, updateStudentDto);
+    
+    try {
+      return await this.studentRepository.save(updatedStudent);
+    } catch (error: any) {
+      // También protegemos el update por si intentan cambiar el email a uno duplicado
+      if (error.code === '23505' || error.errno === 1062) {
+        throw new ConflictException(`El correo electrónico '${updateStudentDto.email}' ya está siendo utilizado por otro estudiante.`);
+      }
+      throw error;
+    }
+  }
+
+  async updateStatus(id: number, updateStatusDto: UpdateStudentStatusDto): Promise<Student> {
+    const student = await this.findOne(id);
+    student.isActive = updateStatusDto.isActive;
+    return await this.studentRepository.save(student);
+  }
+
+  async remove(id: number): Promise<{ message: string }> {
+    const student = await this.findOne(id);
+    await this.studentRepository.remove(student);
+    return { message: `Estudiante con ID ${id} eliminado exitosamente` };
   }
 }
