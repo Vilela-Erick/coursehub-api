@@ -8,6 +8,8 @@ import { AppService } from './app.service.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -42,6 +44,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     CoursesModule,
     StudentsModule,
     EnrollmentsModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
