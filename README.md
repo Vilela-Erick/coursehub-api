@@ -112,3 +112,36 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Filtros, paginación y ordenamiento
+
+El endpoint `GET /courses` permite consultar cursos aplicando filtros por nivel y título, paginación y ordenamiento.
+
+### Ejemplo de petición
+
+`GET /courses?level=beginner&page=1&limit=3&sortBy=title&order=ASC`
+
+### Estructura de respuesta
+
+```json
+{
+  "items": [],
+  "meta": {
+    "total": 0,
+    "page": 1,
+    "limit": 3,
+    "totalPages": 0
+  }
+}
+```
+
+Los valores de la respuesta dependen de los registros encontrados.
+
+### Validaciones
+
+- `page`: entero mayor o igual a 1.
+- `limit`: entero entre 1 y 50.
+- `sortBy`: id, title o level.
+- `order`: ASC o DESC.
+
+Los parámetros inválidos devuelven HTTP 400 Bad Request.
