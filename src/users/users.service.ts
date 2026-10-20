@@ -18,6 +18,8 @@ export class UsersService {
     return this.usersRepository.findOneBy({ email });
   }
 
+  
+
   async create(
     email: string,
     passwordHash: string,
@@ -34,5 +36,15 @@ export class UsersService {
     });
 
     return this.usersRepository.save(user);
+
+  
+  }
+
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+  return this.usersRepository
+    .createQueryBuilder('user')
+    .addSelect('user.passwordHash')
+    .where('user.email = :email', { email })
+    .getOne();
   }
 }

@@ -31,7 +31,6 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         DATABASE_PASSWORD: Joi.string().allow('').required(),
       }),
     }),
-
     // Configuración asíncrona de TypeORM / PostgreSQL
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
