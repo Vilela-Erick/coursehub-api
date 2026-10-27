@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { createObserveModule } from '@nestjs/observe';
+import * as Joi from 'joi';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -10,8 +11,6 @@ import { StudentsModule } from './students/students.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-
-import * as Joi from 'joi';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -29,8 +28,11 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         DATABASE_NAME: Joi.string().required(),
         DATABASE_USER: Joi.string().required(),
         DATABASE_PASSWORD: Joi.string().allow('').required(),
+        JWT_SECRET: Joi.string().min(32).required(), // Corregido de WT_SECRET a JWT_SECRET
+        JWT_EXPIRES_IN: Joi.string().default('15m'),
       }),
     }),
+
     // Configuración asíncrona de TypeORM / PostgreSQL
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -58,7 +60,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     StudentsModule,
     EnrollmentsModule,
     UsersModule,
-    AuthModule,
+    AuthModule, // <--- Aquí se integra correctamente el módulo de autenticación
   ],
   controllers: [AppController],
   providers: [AppService],

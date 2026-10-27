@@ -1,7 +1,8 @@
-POST http://localhost:3000/auth/login
+POST http://localhost:3000/courses
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjUsImVtYWlsIjoidGVzdC1wcmFjdGljYUBleGFtcGxlLmNvbSIsImlhdCI6MTc5MzEyODE4NCwiZXhwIjoxNzkzMTI5MDg0fQ.VAT2IQ73hHWBh8weAkk6wiZn249jHpvVvD_WhlVwNqM
 Content-Type: application/json
 
 {
-  "email": "ana@example.com",
-  "password": "aprenda"
+  "title": "NestJS Avanzado",
+  "level": "advanced"
 }
