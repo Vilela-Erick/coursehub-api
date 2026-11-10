@@ -7,7 +7,9 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { EnrollmentsService } from './enrollments.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 
@@ -18,11 +20,13 @@ export class EnrollmentsController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateEnrollmentDto) {
     return this.enrollmentsService.create(dto);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll(
     @Query('studentId') studentId?: string,
     @Query('courseId') courseId?: string,

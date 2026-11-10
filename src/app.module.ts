@@ -30,6 +30,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         DATABASE_PASSWORD: Joi.string().allow('').required(),
         JWT_SECRET: Joi.string().min(32).required(), // Corregido de WT_SECRET a JWT_SECRET
         JWT_EXPIRES_IN: Joi.string().default('15m'),
+        CORS_ORIGINS: Joi.string().allow('').default(''),
       }),
     }),
 
@@ -44,7 +45,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         password: config.getOrThrow('DATABASE_PASSWORD'),
         database: config.getOrThrow('DATABASE_NAME'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: config.getOrThrow<string>('NODE_ENV') !== 'production',
       }),
     }),
 

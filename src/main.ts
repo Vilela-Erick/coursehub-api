@@ -18,6 +18,14 @@ async function bootstrap() {
   );
 
   const config = app.get(ConfigService);
+  const allowedOrigins = config.getOrThrow<string>('CORS_ORIGINS')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'],
+  });
   const port = config.getOrThrow<number>('PORT');
 
   await app.listen(port);

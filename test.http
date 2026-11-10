@@ -1,8 +1,7 @@
-POST http://localhost:3000/courses
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjUsImVtYWlsIjoidGVzdC1wcmFjdGljYUBleGFtcGxlLmNvbSIsImlhdCI6MTc5MzEyODE4NCwiZXhwIjoxNzkzMTI5MDg0fQ.VAT2IQ73hHWBh8weAkk6wiZn249jHpvVvD_WhlVwNqM
+POST http://localhost:3001/enrollments
 Content-Type: application/json
 
 {
-  "title": "NestJS Avanzado",
-  "level": "advanced"
+  "studentId": 1,
+  "courseId": 2
 }

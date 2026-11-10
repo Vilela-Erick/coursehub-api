@@ -145,3 +145,56 @@ Los valores de la respuesta dependen de los registros encontrados.
 - `order`: ASC o DESC.
 
 Los parámetros inválidos devuelven HTTP 400 Bad Request.
+
+## Autenticación de rutas
+
+| Ruta | Acceso |
+| --- | --- |
+| `POST /auth/register`, `POST /auth/login` | Pública |
+| `GET /auth/me` | Requiere JWT |
+| `POST /courses` | Requiere JWT y rol admin o teacher |
+| `PATCH /courses/:id` | Requiere JWT; admin o teacher propietario |
+| `DELETE /courses/:id` | Requiere JWT y rol admin |
+| `GET /enrollments`, `POST /enrollments` | Requiere JWT |
+| Otras rutas de `/courses`, `/enrollments`, `/students` y `GET /` | Pública |
+
+El registro y el inicio de sesión son públicos para que se pueda obtener una cuenta y un token. Crear cursos requiere rol `admin` o `teacher`; al crearlos, el propietario se toma del usuario autenticado. Crear o listar matrículas exige una identidad autenticada.
+
+Envía `Authorization: Bearer <accessToken>` a las rutas protegidas. `GET /enrollments` conserva su respuesta y sus filtros `studentId` y `courseId`, pero ahora puede devolver `401 Unauthorized` si falta el encabezado o el token no es válido. `POST /enrollments` conserva su cuerpo y respuesta exitosa, y también puede devolver 401. En `POST /courses`, una solicitud sin token recibe 401 antes de ejecutar el controlador; con token válido, un cuerpo inválido sigue recibiendo 400 por la validación del DTO.
+
+En `GET /auth/me`, el guard extrae el token, la estrategia verifica su firma y vencimiento y consulta el rol actual del usuario en la base. Si es válido, coloca `{ id, email, role }` en `req.user`. Un token alterado falla la verificación, por lo que `validate` y el controlador no se ejecutan y la respuesta es 401. Un token válido solo acredita identidad; los guards de roles y la comprobación de propiedad deciden si puede modificar o borrar un curso.
+
+## Semana 10: roles, propiedad y acceso
+
+Las cuentas nuevas reciben `student`. El registro público no acepta un rol enviado por el cliente. Para preparar las tres cuentas de práctica, regístralas normalmente y asigna los roles solo en la base **local**, mediante una cuenta administradora de PostgreSQL:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';
+UPDATE users SET role = 'teacher' WHERE email = 'teacher@example.com';
+```
+
+Sustituye esos correos por los de tus cuentas de práctica y confirma que cada `UPDATE` afectó exactamente una fila. La cuenta estudiante conserva el valor por defecto. Los cursos existentes tienen `createdByUserId` vacío; solo un admin puede actualizarlos hasta que se asigne un propietario verificado. El cliente no puede elegir el propietario en el cuerpo de `POST` o `PATCH /courses`.
+
+| `PATCH /courses/:id` | Resultado |
+| --- | --- |
+| Sin token o con token inválido | 401 |
+| Estudiante autenticado | 403 |
+| Docente ajeno al curso | 403 |
+| Docente propietario | 200 |
+| Admin | 200 |
+
+`DELETE /courses/:id` devuelve 403 para todo usuario autenticado que no sea admin. El rol se obtiene de la base en cada solicitud protegida, de modo que cambiarlo no exige esperar al vencimiento del JWT.
+
+### CORS y login
+
+Configura `CORS_ORIGINS` con los orígenes exactos del cliente web, separados por comas. Por ejemplo, en desarrollo: `CORS_ORIGINS=http://localhost:5173`. En producción usa únicamente los dominios HTTPS del cliente, por ejemplo `CORS_ORIGINS=https://app.example.com`. La lista vacía no autoriza ningún origen de navegador. CORS no reemplaza la autenticación ni bloquea clientes HTTP ajenos al navegador.
+
+`POST /auth/login` acepta hasta 5 solicitudes por IP cada 60 segundos; la sexta devuelve 429. El contador incorporado es local a cada proceso: un despliegue con varias instancias necesita almacenamiento compartido para mantener un límite global.
+
+### Evidencia para el documento de pruebas
+
+Captura la petición y el código de respuesta para los cinco casos de `PATCH /courses/:id` de la tabla, además de `DELETE /courses/:id` con teacher (403) y admin (200), seis intentos seguidos de `POST /auth/login` (el último 429), y una petición CORS desde un origen permitido y otra desde uno no permitido. Para CORS, muestra que `Access-Control-Allow-Origin` aparece solo para el origen permitido; el servidor puede responder 200 al cliente HTTP aunque el navegador bloquee el origen no permitido. En cada captura oculta contraseñas, JWT completos, `JWT_SECRET` y datos personales reales. Anota el rol usado, el dueño del curso y el resultado esperado; así se entiende por qué cada respuesta es correcta.
+
+### Producción
+
+Sirve la API solo mediante HTTPS/TLS. La sincronización automática de TypeORM está desactivada cuando `NODE_ENV=production`; antes de desplegar cambios de esquema, prepara y ejecuta migraciones de base de datos.
