@@ -11,6 +11,9 @@ import { CoursesService } from '../courses/courses.service';
 import { UserRole } from '../users/user-role.enum';
 import { UsersService } from '../users/users.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { COURSE_REPOSITORY } from '../courses/application/ports/course.repository';
+import { UpdateCourseUseCase } from '../courses/application/update-course.use-case';
+import { HttpErrorFilter } from '../common/filters/http-error.filter';
 
 describe('Autorización de cursos', () => {
   let app: INestApplication;
@@ -40,7 +43,9 @@ describe('Autorización de cursos', () => {
       controllers: [CoursesController],
       providers: [
         CoursesService,
+        UpdateCourseUseCase,
         JwtStrategy,
+        { provide: COURSE_REPOSITORY, useValue: { findById: (id: number) => repository.findOneBy({ id }), save } },
         { provide: getRepositoryToken(Course), useValue: repository },
         { provide: ConfigService, useValue: { getOrThrow: () => secret } },
         { provide: UsersService, useValue: { findById: async (id: number) => users.find((user) => user.id === id) ?? null } },
@@ -48,6 +53,7 @@ describe('Autorización de cursos', () => {
     }).compile();
     app = module.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalFilters(new HttpErrorFilter());
     await app.init();
     jwt = module.get(JwtService);
   });
@@ -100,5 +106,46 @@ describe('Autorización de cursos', () => {
       .send({ title: 'Nuevo', level: 'beginner' })
       .expect(201);
     expect(repository.create).toHaveBeenCalledWith({ title: 'Nuevo', level: 'beginner', createdByUserId: 2 });
+  });
+
+  it('mantiene la forma pública de errores 400, 403 y 404', async () => {
+    const invalidId = await request(app.getHttpServer()).get('/courses/no-es-numero').expect(400);
+    const forbidden = await request(app.getHttpServer())
+      .patch('/courses/10')
+      .set('Authorization', tokenFor(3))
+      .send({ title: 'Ajeno' })
+      .expect(403);
+    const missing = await request(app.getHttpServer())
+      .patch('/courses/999')
+      .set('Authorization', tokenFor(2))
+      .send({ title: 'No existe' })
+      .expect(404);
+
+    for (const [response, status] of [[invalidId, 400], [forbidden, 403], [missing, 404]] as const) {
+      expect(response.body).toEqual({
+        statusCode: status,
+        path: expect.any(String),
+        timestamp: expect.any(String),
+        message: expect.anything(),
+      });
+      expect(JSON.stringify(response.body)).not.toMatch(/stack|query|passwordHash/i);
+    }
+  });
+
+  it('oculta los detalles de un error inesperado', async () => {
+    repository.findOneBy.mockRejectedValueOnce(new Error('SQL connection secret detail'));
+    const response = await request(app.getHttpServer())
+      .patch('/courses/10')
+      .set('Authorization', tokenFor(2))
+      .send({ title: 'Prueba de error' })
+      .expect(500);
+
+    expect(response.body).toEqual({
+      statusCode: 500,
+      path: '/courses/10',
+      timestamp: expect.any(String),
+      message: 'Internal server error',
+    });
+    expect(JSON.stringify(response.body)).not.toContain('SQL connection secret detail');
   });
 });

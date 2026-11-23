@@ -198,3 +198,25 @@ Captura la petición y el código de respuesta para los cinco casos de `PATCH /c
 ### Producción
 
 Sirve la API solo mediante HTTPS/TLS. La sincronización automática de TypeORM está desactivada cuando `NODE_ENV=production`; antes de desplegar cambios de esquema, prepara y ejecuta migraciones de base de datos.
+
+## Semana 11: componentes transversales y actualización de cursos
+
+La API aplica un middleware de registro a las rutas. Cada solicitud registra método, ruta sin parámetros de consulta, estado y duración. El interceptor mide el tiempo de ejecución del método. Ninguno registra cuerpos, contraseñas ni el encabezado `Authorization`.
+
+El filter global devuelve los errores con `statusCode`, `path`, `timestamp` y `message`. Para un error inesperado responde `500` con el mensaje genérico `Internal server error`; el registro interno conserva solo el tipo de error y el contexto de la ruta. `ValidationPipe` sigue siendo global y `GET /courses/:id` usa `ParseIntPipe` para rechazar identificadores no numéricos con 400.
+
+La operación `PATCH /courses/:id` conserva su método, cuerpo y respuestas. Su flujo interno ahora es:
+
+```text
+CoursesController → CoursesService → UpdateCourseUseCase
+                                     ↓
+                               CourseRepository
+                                     ↓
+                             TypeOrmCourseRepository
+                                     ↓
+                                 PostgreSQL
+```
+
+`UpdateCourseUseCase` contiene la regla de propiedad y depende únicamente del puerto `CourseRepository`. Si cambia esa regla, se modifica el caso de uso; si se reemplaza TypeORM, se modifica el adaptador. Los cursos nuevos y las demás operaciones del módulo permanecen en `CoursesService` durante esta refactorización gradual.
+
+Prueba enfocada sin base de datos: `npm run test -- src/courses/application/update-course.use-case.spec.ts`. La demostración HTTP verifica 200 para el docente propietario, 400 para un identificador inválido, 404 para un recurso inexistente y 403 para un docente ajeno.

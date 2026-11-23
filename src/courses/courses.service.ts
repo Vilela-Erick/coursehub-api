@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCourseDto } from './dto/create-course.dto'; // Corregido: removido .js
@@ -6,13 +6,14 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { Course } from './entities/course.entity'; // Corregido: removido .js
 import { CoursesQueryDto } from './dto/courses-query.dto';
 import { AuthenticatedUser } from '../auth/types/jwt-payload.type';
-import { UserRole } from '../users/user-role.enum';
+import { UpdateCourseUseCase } from './application/update-course.use-case';
 
 @Injectable()
 export class CoursesService {
   constructor(
     @InjectRepository(Course)
     private readonly coursesRepository: Repository<Course>,
+    private readonly updateCourseUseCase: UpdateCourseUseCase,
   ) {}
 
   async findAll(query: CoursesQueryDto) {
@@ -66,17 +67,7 @@ export class CoursesService {
   }
 
   async update(id: number, updateCourseDto: UpdateCourseDto, actor: AuthenticatedUser): Promise<Course> {
-    const course = await this.coursesRepository.findOneBy({ id });
-    if (!course) {
-      throw new NotFoundException(`Course #${id} not found`);
-    }
-    const canManageAny = actor.role === UserRole.ADMIN;
-    const isTeacherOwner = actor.role === UserRole.TEACHER && course.createdByUserId === actor.id;
-    if (!canManageAny && !isTeacherOwner) {
-      throw new ForbiddenException('You cannot modify this course');
-    }
-    const updatedCourse = this.coursesRepository.merge(course, updateCourseDto); // Consistente con TypeORM strict
-    return await this.coursesRepository.save(updatedCourse);
+    return this.updateCourseUseCase.execute(id, updateCourseDto, actor) as Promise<Course>;
   }
 
   async remove(id: number): Promise<Course> {
