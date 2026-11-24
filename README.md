@@ -220,3 +220,33 @@ CoursesController → CoursesService → UpdateCourseUseCase
 `UpdateCourseUseCase` contiene la regla de propiedad y depende únicamente del puerto `CourseRepository`. Si cambia esa regla, se modifica el caso de uso; si se reemplaza TypeORM, se modifica el adaptador. Los cursos nuevos y las demás operaciones del módulo permanecen en `CoursesService` durante esta refactorización gradual.
 
 Prueba enfocada sin base de datos: `npm run test -- src/courses/application/update-course.use-case.spec.ts`. La demostración HTTP verifica 200 para el docente propietario, 400 para un identificador inválido, 404 para un recurso inexistente y 403 para un docente ajeno.
+
+## Semana 12: pruebas unitarias
+
+Las pruebas unitarias sustituyen repositorios y servicios con dobles de prueba (`vi.fn()`), por lo que no abren PostgreSQL ni hacen peticiones de red. Las pruebas de integración con base de datos y HTTP se abordan en la Semana 13.
+
+```bash
+# Suite completa
+npm test
+
+# Caso de uso: existencia y regla de propiedad
+npm test -- src/courses/application/update-course.use-case.spec.ts
+
+# Controlador: delegación de id, DTO e identidad autenticada
+npm test -- src/courses/courses.controller.spec.ts
+
+# Cobertura
+npm run test:cov
+```
+
+`UpdateCourseUseCase` se prueba con un repositorio simulado y cubre el caso exitoso del docente propietario, el curso inexistente (`CourseNotFoundError`), el docente ajeno (`CourseForbiddenError`) y el admin. En los rechazos se verifica además que `save` no se invoque. `CoursesController` se prueba con `CoursesService` simulado: confirma que el id, el DTO y el usuario autenticado llegan intactos al caso de uso, y que un error se propaga sin convertirse en una respuesta exitosa.
+
+### Demostración: una prueba que protege una regla
+
+1. Ejecuta `npm test` y confirma que todo pasa.
+2. Cambia temporalmente en `src/courses/application/update-course.use-case.ts` la condición de propiedad para permitir a cualquier docente:
+   `const isTeacherOwner = actor.role === UserRole.TEACHER;`
+3. Ejecuta `npm test -- src/courses/application/update-course.use-case.spec.ts`: la prueba «rechaza al docente ajeno sin guardar» debe fallar.
+4. Restaura la regla con `git checkout -- src/courses/application/update-course.use-case.ts` y vuelve a ejecutar la prueba.
+
+Sin esa prueba, un docente podría editar cursos ajenos y el cambio pasaría desapercibido. La prueba del controlador complementa la protección: comprueba que el id, el DTO y la identidad no se pierden al delegar, pero no repite la regla de negocio.
